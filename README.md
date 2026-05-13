@@ -85,10 +85,24 @@ npm install -g eslint
 ### 1. 프로젝트 클론 및 가상환경 설정
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/kernullist/into-the-git.git
 cd into-the-git
+```
 
-# 가상환경 생성 (권장)
+#### 자동 설정 (권장)
+
+```bash
+# Windows (PowerShell)
+.\scripts\setup.ps1
+
+# macOS / Linux
+bash scripts/setup.sh
+```
+
+#### 수동 설정
+
+```bash
+# 가상환경 생성
 python -m venv venv
 
 # 가상환경 활성화
@@ -96,21 +110,34 @@ python -m venv venv
 venv\Scripts\activate
 # macOS/Linux:
 source venv/bin/activate
+
+# 의존성 설치
+pip install -e ".[dev]"        # 개발 의존성 포함
+# 또는 최소 설치:
+pip install -e .
 ```
 
-### 2. 의존성 설치
+#### Makefile 사용
 
 ```bash
+make setup    # 가상환경 생성 + 의존성 설치 (최초 1회)
+make run      # 개발 서버 시작
+make test     # 테스트 실행
+make clean    # 캐시 정리
+make help     # 모든 명령어 확인
+```
+
+### 2. 의존성 확인
+
+```bash
+# 설치된 패키지 확인
+pip list
+
+# 또는 requirements.txt로 설치 (pyproject.toml 기반 자동 생성)
 pip install -r requirements.txt
 ```
 
-`requirements.txt`에 포함된 주요 패키지:
-- **Flask** + Flask-SQLAlchemy + Flask-CORS: 웹 프레임워크 및 ORM
-- **GitPython**: Git 저장소 조작
-- **scikit-learn** + numpy + scipy: ML 분류 (KMeans, Naive Bayes)
-- **radon**: Python 복잡도 메트릭
-- **tree-sitter**: 다중 언어 AST 파싱
-- **gunicorn**: 프로덕션 WSGI 서버
+`requirements.txt`는 `pyproject.toml`에서 생성된 고정 버전입니다. 최신 호환 버전이 필요하면 `pip install -e ".[dev]"`를 사용하세요.
 
 ### 3. 환경변수 설정 (선택)
 

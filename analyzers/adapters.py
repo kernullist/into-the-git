@@ -85,7 +85,8 @@ class CppCheckAdapter(BaseAnalyzer):
         return mapping.get(cppcheck_severity, "minor")
 
     def _map_category(self, rule_id):
-        if "null" in rule_id.lower() or "pointer" in rule_id.lower():
+        rule_lower = rule_id.lower()
+        if "nullpointer" in rule_lower or "null" in rule_lower.split("_") or re.search(r'\bnull\b', rule_lower):
             return "null_pointer"
         if "memory" in rule_id.lower() or "leak" in rule_id.lower():
             return "memory"

@@ -1,5 +1,4 @@
 import math
-from collections import defaultdict
 
 from .sentiment import compute_sentiment_score, compute_improvement_score
 

@@ -24,6 +24,7 @@ from analyzers.complexity import compute_complexity
 from analyzers.duplication import detect_duplicates
 from analyzers.dependency import analyze_dependencies
 from commit_intel.classifier import CommitClassifier
+from commit_intel.frequency import compute_change_frequency
 from scoring.engine import (
     compute_finding_score,
     compute_complexity_score,
@@ -108,6 +109,9 @@ def run_analysis(app, run_id, retry_repository_ids=None, period="1m"):
 
                     _log(run, "Discovering branches...")
                     branches = connector.get_branches()
+                    if branches and not repo.selected_branches:
+                        repo.selected_branches = branches[:1]
+                        _log(run, f"Auto-selected branch: {repo.selected_branches[0]}")
 
                     _log(run, f"Getting commit history since {since_date}..." if since_date else "Getting commit history...")
                     all_commits = connector.get_commit_history(
@@ -122,13 +126,25 @@ def run_analysis(app, run_id, retry_repository_ids=None, period="1m"):
                     _log(run, "Classifying commits...")
                     classifier = CommitClassifier()
                     messages = [c.get("message", "") for c in all_commits[:1000]]
-                    cluster_labels, cluster_terms = classifier.cluster_unsupervised(messages)
+                    result = classifier.cluster_unsupervised(messages)
+                    if isinstance(result, tuple):
+                        cluster_labels, cluster_terms = result
+                    else:
+                        cluster_labels, cluster_terms = [classifier.classify_rule_based(m) for m in messages], {}
                     rule_labels = classifier.classify_batch(messages)
 
-                    if isinstance(cluster_labels, tuple):
-                        cluster_labels = cluster_labels[0]
+                    final_labels = cluster_labels if isinstance(cluster_labels, list) else list(cluster_labels)
 
-                    _store_commit_signals(run, repo, all_commits, rule_labels, files)
+                    _store_commit_signals(run, repo, all_commits, final_labels, files)
+
+                    _log(run, "Computing change frequency...")
+                    freq_data = compute_change_frequency(all_commits)
+                    for file_path, change_count in freq_data.get("file_frequency", {}).items():
+                        if file_path in all_file_signals:
+                            total = max(1, len(all_commits))
+                            all_file_signals[file_path]["change_frequency_score"] = min(
+                                10.0, (change_count / total) * 20
+                            )
 
                     run.progress = ((idx + 1) / total_repos) * 100
                     db.session.commit()

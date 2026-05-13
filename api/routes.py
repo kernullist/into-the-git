@@ -190,7 +190,7 @@ def create_analysis_run():
 
     for rid in repository_ids:
         repo = db.session.get(Repository, rid)
-        if repo and branch_refs:
+        if repo and branch_refs and not repo.selected_branches:
             repo.selected_branches = branch_refs
             db.session.commit()
 

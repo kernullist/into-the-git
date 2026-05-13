@@ -12,3 +12,6 @@ data/reports/*
 *.egg-info/
 dist/
 build/
+.vscode/
+.idea/
+.DS_Store

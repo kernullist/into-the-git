@@ -1,0 +1,71 @@
+[project]
+name = "into-the-git"
+version = "1.0.0"
+description = "Multi-Git Repository Code Analysis Dashboard — AST-based static analysis with ML commit classification and user feedback scoring"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "kernullist" }]
+keywords = [
+    "code-analysis",
+    "static-analysis",
+    "ast",
+    "git",
+    "dashboard",
+    "code-quality",
+    "machine-learning",
+    "commit-classification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+
+dependencies = [
+    "Flask>=3.0",
+    "Flask-SQLAlchemy>=3.1",
+    "Flask-CORS>=5.0",
+    "SQLAlchemy>=2.0",
+    "GitPython>=3.1",
+    "scikit-learn>=1.3",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "tree-sitter>=0.21",
+    "radon>=6.0",
+    "jellyfish>=1.0",
+    "python-dateutil>=2.8",
+]
+
+[project.optional-dependencies]
+prod = ["gunicorn>=23.0"]
+dev = [
+    "gunicorn>=23.0",
+]
+windows = ["waitress>=3.0"]
+
+[project.urls]
+Homepage = "https://github.com/kernullist/into-the-git"
+Repository = "https://github.com/kernullist/into-the-git"
+Issues = "https://github.com/kernullist/into-the-git/issues"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["connectors*", "analysis*", "analyzers*", "commit_intel*", "scoring*", "normalization*", "api*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
