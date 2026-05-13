@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Code Analysis Dashboard{% endblock %}
+
+{% block filters %}
+<div class="filter-section">
+    <h3>Filters</h3>
+
+    <div class="filter-group">
+        <label for="filter-project">Project</label>
+        <select id="filter-project" onchange="onProjectChange()">
+            <option value="">All Projects</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-repository">Repository</label>
+        <select id="filter-repository" onchange="applyFilters()">
+            <option value="">All Repositories</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-language">Language</label>
+        <select id="filter-language" onchange="applyFilters()">
+            <option value="">All Languages</option>
+            <option value="Python">Python</option>
+            <option value="JavaScript">JavaScript</option>
+            <option value="Java">Java</option>
+            <option value="C++">C++</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-period">Period</label>
+        <select id="filter-period" onchange="applyFilters()">
+            <option value="1m" selected>Last 1 Month</option>
+            <option value="1w">Last 1 Week</option>
+            <option value="3m">Last 3 Months</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-severity">Severity</label>
+        <select id="filter-severity" onchange="applyFilters()">
+            <option value="">All</option>
+            <option value="critical">Critical</option>
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+            <option value="info">Info</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-category">Smell Type</label>
+        <select id="filter-category" onchange="applyFilters()">
+            <option value="">All</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="filter-priority">Priority</label>
+        <select id="filter-priority" onchange="applyFilters()">
+            <option value="">All</option>
+            <option value="high">High (75+)</option>
+            <option value="medium">Medium (50-74)</option>
+            <option value="low">Low (<50)</option>
+        </select>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <div id="dashboard-controls">
+        <button class="btn btn-sm btn-secondary" onclick="refreshDashboard()">Refresh</button>
+    </div>
+</div>
+
+<div id="overview-cards" class="metric-cards">
+    <div class="metric-card">
+        <div class="metric-value" id="card-findings">-</div>
+        <div class="metric-label">Total Findings</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value" id="card-recommendations">-</div>
+        <div class="metric-label">Recommendations</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value" id="card-rating">-</div>
+        <div class="metric-label">Avg Rating</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value" id="card-feedback">-</div>
+        <div class="metric-label">Feedbacks</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value" id="card-complexity">-</div>
+        <div class="metric-label">Avg Complexity</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-value" id="card-changes">-</div>
+        <div class="metric-label">Commit Changes</div>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Findings by Severity</h3>
+        <canvas id="chart-severity"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Code Smell Distribution</h3>
+        <canvas id="chart-category"></canvas>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Top Functions by Complexity</h3>
+        <canvas id="chart-complexity-trend"></canvas>
+    </div>
+    <div class="chart-container">
+        <h3>Commit Purpose Distribution</h3>
+        <canvas id="chart-commits"></canvas>
+    </div>
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <h3>Top Improvement Targets</h3>
+        <div id="top-recommendations" class="list-container"></div>
+    </div>
+    <div class="chart-container">
+        <h3>Recent Feedback</h3>
+        <div id="recent-feedback" class="list-container">
+            <p class="empty-state">No feedback submitted yet.</p>
+        </div>
+    </div>
+</div>
+
+<div class="feedback-form-container">
+    <h3>Submit Feedback</h3>
+    <p>Rate the overall analysis quality:</p>
+    <form id="feedback-form">
+        <div class="star-rating">
+            <input type="radio" id="star5" name="rating" value="5"><label for="star5">&#9733;</label>
+            <input type="radio" id="star4" name="rating" value="4"><label for="star4">&#9733;</label>
+            <input type="radio" id="star3" name="rating" value="3"><label for="star3">&#9733;</label>
+            <input type="radio" id="star2" name="rating" value="2"><label for="star2">&#9733;</label>
+            <input type="radio" id="star1" name="rating" value="1"><label for="star1">&#9733;</label>
+        </div>
+        <div class="form-group">
+            <textarea id="feedback-comment" rows="3" placeholder="Add a comment about the analysis..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Feedback</button>
+    </form>
+    <div id="feedback-result" style="display:none; margin-top:10px;"></div>
+</div>
+
+<div id="drilldown-panel" class="drilldown" style="display:none;">
+    <div class="drilldown-header">
+        <h3 id="drilldown-title">Details</h3>
+        <button class="btn btn-sm" onclick="closeDrilldown()">Close</button>
+    </div>
+    <div id="drilldown-content"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentRunId = null;
+let currentProjectId = null;
+let dashboardData = null;
+let charts = {};
+
+async function loadDashboard() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let runId = urlParams.get('run_id');
+    let projectId = urlParams.get('project_id');
+
+    const filters = {
+        severity: document.getElementById('filter-severity').value,
+        category: document.getElementById('filter-category').value,
+        language: document.getElementById('filter-language').value,
+        period: document.getElementById('filter-period').value,
+        repository_id: document.getElementById('filter-repository').value,
+    };
+
+    if (runId) currentRunId = runId;
+
+    let apiUrl = '/api/dashboard/overview?';
+    let params = [];
+    if (runId) params.push(`run_id=${runId}`);
+    else if (projectId) params.push(`project_id=${projectId}`);
+    if (filters.repository_id) params.push(`repository_id=${filters.repository_id}`);
+    if (filters.severity) params.push(`severity=${filters.severity}`);
+    if (filters.category) params.push(`category=${filters.category}`);
+    if (filters.period) params.push(`period=${filters.period}`);
+    apiUrl += params.join('&');
+
+    const resp = await fetch(apiUrl);
+    if (!resp.ok) {
+        document.getElementById('overview-cards').innerHTML = '<p class="empty-state">No analysis data yet. Run an analysis first.</p>';
+        return;
+    }
+
+    const data = await resp.json();
+    dashboardData = data;
+    currentRunId = data.run.id;
+    currentProjectId = data.run.project_id;
+
+    document.getElementById('card-findings').textContent = data.total_findings;
+    document.getElementById('card-recommendations').textContent = data.total_recommendations;
+    document.getElementById('card-rating').textContent = data.average_rating;
+    document.getElementById('card-feedback').textContent = data.feedback_count;
+
+    const metrics = data.metrics || [];
+    const avgComplexity = metrics.find(m => m.metric_name === 'avg_complexity');
+    document.getElementById('card-complexity').textContent = avgComplexity ? avgComplexity.value.toFixed(1) : 'N/A';
+
+    try {
+        const signalResp = await fetch(`/api/analysis-runs/${data.run.id}/commit-signals/summary`);
+        const signalData = await signalResp.json();
+        document.getElementById('card-changes').textContent = signalData.total;
+    } catch(e) {
+        document.getElementById('card-changes').textContent = 'N/A';
+    }
+
+    populateRepoFilter(data.repositories || []);
+    populateCategoryFilter(data.findings_by_category || {});
+
+    renderSeverityChart(data.findings_by_severity);
+    renderCategoryChart(data.findings_by_category);
+    renderRecommendations(data.top_recommendations);
+
+    loadComplexityTrend();
+    loadFeedback(data.run.id);
+
+    if (data.recent_feedback && data.recent_feedback.length > 0) {
+        document.getElementById('recent-feedback').innerHTML = data.recent_feedback.map(f => `
+            <div class="feedback-item">
+                <div class="feedback-rating">${'★'.repeat(f.rating)}${'☆'.repeat(5-f.rating)}</div>
+                <p>${escapeHtml(f.comment || 'No comment')}</p>
+                <small>Sentiment: ${f.sentiment_score.toFixed(1)} | ${formatDate(f.created_at)}</small>
+            </div>
+        `).join('');
+    }
+
+    try {
+        const commitSumResp = await fetch(`/api/analysis-runs/${data.run.id}/commit-signals/summary`);
+        const commitSum = await commitSumResp.json();
+        renderCommitChart(commitSum.by_purpose || {});
+    } catch(e) {}
+}
+
+async function loadComplexityTrend() {
+    if (!currentRunId) return;
+    try {
+        const resp = await fetch(`/api/analysis-runs/${currentRunId}/complexity-trend`);
+        const data = await resp.json();
+        renderComplexityChart(data.symbols || []);
+    } catch(e) {}
+}
+
+function populateRepoFilter(repos) {
+    const select = document.getElementById('filter-repository');
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">All Repositories</option>';
+    repos.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.remote_url.split('/').pop() || r.remote_url;
+        select.appendChild(opt);
+    });
+    if (currentVal) select.value = currentVal;
+}
+
+function populateCategoryFilter(categories) {
+    const select = document.getElementById('filter-category');
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">All</option>';
+    Object.keys(categories || {}).sort().forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = `${cat} (${categories[cat]})`;
+        select.appendChild(opt);
+    });
+    if (currentVal) select.value = currentVal;
+}
+
+function renderSeverityChart(bySeverity) {
+    const ctx = document.getElementById('chart-severity')?.getContext('2d');
+    if (!ctx) return;
+    if (charts.severity) charts.severity.destroy();
+    const labels = Object.keys(bySeverity || {});
+    const values = Object.values(bySeverity || {});
+    const colors = { critical: '#dc3545', blocker: '#dc3545', major: '#fd7e14', minor: '#ffc107', info: '#17a2b8' };
+    charts.severity = new Chart(ctx, {
+        type: 'bar', data: { labels, datasets: [{ label: 'Findings', data: values, backgroundColor: labels.map(l => colors[l] || '#6c757d') }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+}
+
+function renderCategoryChart(byCategory) {
+    const ctx = document.getElementById('chart-category')?.getContext('2d');
+    if (!ctx) return;
+    if (charts.category) charts.category.destroy();
+    const labels = Object.keys(byCategory || {});
+    const values = Object.values(byCategory || {});
+    charts.category = new Chart(ctx, {
+        type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#007bff','#28a745','#dc3545','#ffc107','#17a2b8','#6f42c1','#fd7e14','#20c997','#e83e8c','#6610f2'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderComplexityChart(symbols) {
+    const ctx = document.getElementById('chart-complexity-trend')?.getContext('2d');
+    if (!ctx) return;
+    if (charts.complexity) charts.complexity.destroy();
+    const top = symbols.slice(0, 15);
+    charts.complexity = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: top.map(s => s.name.length > 20 ? s.name.substring(0,20)+'...' : s.name),
+            datasets: [{ label: 'Cyclomatic Complexity', data: top.map(s => s.complexity), backgroundColor: top.map(s => complexityColor(s.complexity)) }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: (ctx) => top[ctx.dataIndex]?.file || '' } } },
+            scales: { x: { beginAtZero: true } }
+        }
+    });
+}
+
+function complexityColor(c) { return c > 20 ? '#dc3545' : c > 10 ? '#fd7e14' : c > 5 ? '#ffc107' : '#17a2b8'; }
+
+function renderCommitChart(byPurpose) {
+    const ctx = document.getElementById('chart-commits')?.getContext('2d');
+    if (!ctx) return;
+    if (charts.commits) charts.commits.destroy();
+    charts.commits = new Chart(ctx, {
+        type: 'doughnut', data: { labels: Object.keys(byPurpose || {}), datasets: [{ data: Object.values(byPurpose || {}), backgroundColor: ['#007bff','#28a745','#dc3545','#ffc107','#17a2b8','#6f42c1','#fd7e14','#20c997'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderRecommendations(recs) {
+    const container = document.getElementById('top-recommendations');
+    if (!recs || recs.length === 0) {
+        container.innerHTML = '<p class="empty-state">No recommendations yet.</p>';
+        return;
+    }
+    container.innerHTML = recs.map(r => `
+        <div class="list-item" onclick="openDrilldown('recommendation', ${r.id})">
+            <div class="list-item-header">
+                <span class="priority-badge" style="background:${scoreColor(r.priority_score)}">${r.priority_score.toFixed(0)}</span>
+                <strong>${escapeHtml(r.target_type)}</strong>
+            </div>
+            <p>${escapeHtml(r.rationale)}</p>
+        </div>
+    `).join('');
+}
+
+function scoreColor(score) {
+    if (score >= 75) return '#dc3545';
+    if (score >= 50) return '#fd7e14';
+    if (score >= 25) return '#ffc107';
+    return '#17a2b8';
+}
+
+async function loadFeedback(runId) {
+    const resp = await fetch(`/api/analysis-runs/${runId}/feedback`);
+    const data = await resp.json();
+    document.getElementById('card-rating').textContent = data.average_rating;
+    document.getElementById('card-feedback').textContent = data.count;
+}
+
+document.getElementById('feedback-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentRunId) { alert('No analysis run selected.'); return; }
+    const ratingEl = document.querySelector('input[name="rating"]:checked');
+    if (!ratingEl) { alert('Please select a rating.'); return; }
+    const rating = parseInt(ratingEl.value);
+    const comment = document.getElementById('feedback-comment').value;
+    const resp = await fetch(`/api/analysis-runs/${currentRunId}/feedback`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rating, comment})
+    });
+    if (resp.ok) {
+        document.getElementById('feedback-result').style.display = 'block';
+        document.getElementById('feedback-result').innerHTML = '<div class="alert alert-success">Feedback submitted!</div>';
+        document.getElementById('feedback-comment').value = '';
+        ratingEl.checked = false;
+        refreshDashboard();
+    }
+});
+
+async function openDrilldown(type, id) {
+    const panel = document.getElementById('drilldown-panel');
+    const content = document.getElementById('drilldown-content');
+    panel.style.display = 'block';
+
+    if (type === 'recommendation' && currentRunId) {
+        const resp = await fetch(`/api/analysis-runs/${currentRunId}/recommendations`);
+        const recs = await resp.json();
+        const rec = recs.find(r => r.id === id);
+        if (rec) {
+            document.getElementById('drilldown-title').textContent = `${rec.target_type} Details`;
+            content.innerHTML = `
+                <p><strong>Priority Score:</strong> ${rec.priority_score}</p>
+                <p><strong>Rationale:</strong> ${escapeHtml(rec.rationale)}</p>
+                <p><strong>Status:</strong> ${rec.status}</p>
+                <h4>Contributing Signals:</h4>
+                <pre>${JSON.stringify(rec.contributing_signals, null, 2)}</pre>
+            `;
+        }
+    } else if (type === 'file' && currentRunId) {
+        document.getElementById('drilldown-title').textContent = `File: ${id}`;
+        content.innerHTML = '<p>Loading...</p>';
+        try {
+            const resp = await fetch(`/api/analysis-runs/${currentRunId}/files/${encodeURIComponent(id)}`);
+            const data = await resp.json();
+            content.innerHTML = `
+                <p><strong>File:</strong> ${escapeHtml(data.file_path)}</p>
+                <p><strong>Language:</strong> ${data.source_file?.language || 'N/A'}</p>
+                <p><strong>Size:</strong> ${data.source_file?.size || 0} bytes</p>
+                <h4>Findings (${data.findings.length})</h4>
+                ${data.findings.slice(0, 20).map(f => {
+                    let sevClass = f.severity === 'critical' || f.severity === 'blocker' ? 'status-failed' :
+                                   f.severity === 'major' ? 'status-running' :
+                                   f.severity === 'minor' ? 'status-cancelled' : 'status-queued';
+                    return `<div class="list-item">
+                        <span class="status-badge ${sevClass}">${f.severity}</span>
+                        <strong>${escapeHtml(f.tool)}</strong>: ${escapeHtml(f.message)}
+                        <br><small>Rule: ${escapeHtml(f.rule_id)} | Line: ${f.location?.line || 'N/A'}</small>
+                    </div>
+                `).join('')}
+                ${data.findings.length > 20 ? `<p>...and ${data.findings.length - 20} more findings</p>` : ''}
+                <h4>Symbols (${data.symbols.length})</h4>
+                ${data.symbols.map(s => `
+                    <div class="list-item">
+                        <strong>${escapeHtml(s.kind)}: ${escapeHtml(s.name)}</strong>
+                        <br><small>Complexity: ${s.complexity} | Lines: ${s.location?.start_line}-${s.location?.end_line}</small>
+                    </div>
+                `).join('')}
+                <h4>Recent Commits (${data.commits.length})</h4>
+                ${data.commits.map(c => `
+                    <div class="list-item">
+                        <span class="badge">${escapeHtml(c.purpose_category || 'other')}</span>
+                        <small>${escapeHtml(c.author)} | ${formatDate(c.committed_at)}</small>
+                        <p>${escapeHtml(c.message?.substring(0, 100) || '')}</p>
+                    </div>
+                `).join('')}
+            `;
+        } catch(e) {
+            content.innerHTML = '<p>Error loading file details.</p>';
+        }
+    }
+}
+
+function closeDrilldown() {
+    document.getElementById('drilldown-panel').style.display = 'none';
+}
+
+async function onProjectChange() {
+    const projectId = document.getElementById('filter-project').value;
+    if (!projectId) return applyFilters();
+    try {
+        const resp = await fetch(`/api/projects/${projectId}/repositories`);
+        const repos = await resp.json();
+        populateRepoFilter(repos);
+    } catch(e) {}
+    applyFilters();
+}
+
+async function applyFilters() {
+    let url = '/dashboard?';
+    const runId = currentRunId;
+    const projectId = document.getElementById('filter-project').value;
+    const repoId = document.getElementById('filter-repository').value;
+    if (runId) url += `run_id=${runId}&`;
+    else if (projectId) url += `project_id=${projectId}&`;
+    url += `repo=${repoId || ''}`;
+    window.history.pushState({}, '', url);
+    loadDashboard();
+}
+
+async function refreshDashboard() { await loadDashboard(); }
+
+async function loadProjects() {
+    const resp = await fetch('/api/projects');
+    const projects = await resp.json();
+    const select = document.getElementById('filter-project');
+    projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        select.appendChild(opt);
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+function formatDate(d) {
+    if (!d) return 'N/A';
+    return new Date(d).toLocaleDateString();
+}
+
+loadProjects();
+loadDashboard();
+</script>
+{% endblock %}

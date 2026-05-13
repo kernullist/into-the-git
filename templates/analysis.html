@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Analysis Run - Code Analysis Dashboard{% endblock %}
+
+{% block filters %}
+<div class="filter-section">
+    <h3>Run Controls</h3>
+    <div id="run-actions"></div>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-link">Go to Dashboard</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Analysis Run <span id="run-id-display">#{{ run_id }}</span></h1>
+    <div id="run-status"></div>
+</div>
+
+<div id="progress-container" class="progress-container">
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+    <span id="progress-text">0%</span>
+</div>
+
+<div id="run-error" class="alert alert-error" style="display:none;"></div>
+
+<div id="run-logs-container">
+    <h3>Logs</h3>
+    <pre id="run-logs" class="log-viewer"></pre>
+</div>
+
+<div id="run-results" style="display:none;">
+    <h2>Analysis Complete</h2>
+    <a href="/dashboard?run_id={{ run_id }}" class="btn btn-primary">View Dashboard</a>
+    <a href="/export/{{ run_id }}" class="btn btn-secondary">Export Report</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const runId = {{ run_id }};
+let pollInterval = null;
+
+async function loadRun() {
+    const resp = await fetch(`/api/analysis-runs/${runId}`);
+    const run = await resp.json();
+
+    document.getElementById('run-status').innerHTML = `<span class="status-badge status-${run.status}">${run.status}</span>`;
+    document.getElementById('progress-fill').style.width = run.progress + '%';
+    document.getElementById('progress-text').textContent = run.progress.toFixed(0) + '%';
+    document.getElementById('run-logs').textContent = run.logs || 'No logs yet...';
+
+    const actions = document.getElementById('run-actions');
+    if (run.status === 'running' || run.status === 'queued') {
+        actions.innerHTML = `<button class="btn btn-danger" onclick="cancelRun()">Cancel</button>`;
+    } else if (run.status === 'failed' || run.status === 'completed' || run.status === 'cancelled') {
+        actions.innerHTML = `<button class="btn btn-secondary" onclick="retryRun()">Retry</button>`;
+        document.getElementById('run-results').style.display = 'block';
+    }
+
+    if (run.error_summary) {
+        const errDiv = document.getElementById('run-error');
+        errDiv.style.display = 'block';
+        errDiv.textContent = run.error_summary;
+    }
+
+    if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+}
+
+async function cancelRun() {
+    await fetch(`/api/analysis-runs/${runId}/cancel`, {method: 'POST'});
+}
+
+async function retryRun() {
+    document.getElementById('run-results').style.display = 'none';
+    document.getElementById('run-error').style.display = 'none';
+    await fetch(`/api/analysis-runs/${runId}/retry`, {method: 'POST'});
+}
+
+loadRun();
+pollInterval = setInterval(loadRun, 2000);
+</script>
+{% endblock %}

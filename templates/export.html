@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Export Report - Code Analysis Dashboard{% endblock %}
+
+{% block filters %}
+<div class="filter-section">
+    <h3>Export Options</h3>
+    <div class="filter-group">
+        <label for="export-format">Format</label>
+        <select id="export-format">
+            <option value="markdown">Markdown (for AI agents)</option>
+            <option value="json">JSON (for tools)</option>
+        </select>
+    </div>
+    <button class="btn btn-primary" onclick="generateExport()">Generate Export</button>
+    <button class="btn btn-secondary" onclick="downloadExport()" id="btn-download" style="display:none;">Download</button>
+    <a href="{{ url_for('dashboard') }}?run_id={{ run_id }}" class="btn btn-link">Back to Dashboard</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Export Report - Run #{{ run_id }}</h1>
+</div>
+
+<div class="export-guide">
+    <h3>About This Export</h3>
+    <div class="guide-cards">
+        <div class="guide-card guide-human">
+            <h4>For Human Review</h4>
+            <p>The <strong>HTML/Dashboard view</strong> is designed for developers and team leads to review findings, metrics, and recommendations interactively.</p>
+            <p>Use the Dashboard page to explore results with filters, charts, and drilldowns.</p>
+        </div>
+        <div class="guide-card guide-ai">
+            <h4>For AI Agents</h4>
+            <p>The <strong>Markdown export</strong> contains the complete analysis report and is formatted as a handoff artifact for coding AI agents.</p>
+            <p>Give the generated Markdown file to coding AI agents as an implementation guide with findings, recommendations, and rationale.</p>
+        </div>
+    </div>
+</div>
+
+<div id="export-status"></div>
+<div id="export-content" style="display:none;">
+    <h3>Preview</h3>
+    <pre id="export-preview" class="log-viewer"></pre>
+</div>
+<div id="json-preview" style="display:none;">
+    <h3>JSON Export Preview</h3>
+    <pre id="json-preview-content" class="log-viewer"></pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const runId = {{ run_id }};
+let exportId = null;
+let exportFormat = 'markdown';
+
+async function generateExport() {
+    exportFormat = document.getElementById('export-format').value;
+    document.getElementById('export-status').innerHTML = '<p>Generating export...</p>';
+
+    const resp = await fetch(`/api/analysis-runs/${runId}/export?format=${exportFormat}`);
+    const data = await resp.json();
+
+    if (data.id) {
+        exportId = data.id;
+    }
+
+    if (exportFormat === 'markdown' && data.content) {
+        document.getElementById('export-content').style.display = 'block';
+        document.getElementById('json-preview').style.display = 'none';
+        document.getElementById('export-preview').textContent = data.content;
+    } else if (exportFormat === 'json' && data.content_preview) {
+        document.getElementById('json-preview').style.display = 'block';
+        document.getElementById('export-content').style.display = 'none';
+        document.getElementById('json-preview-content').textContent = data.content_preview;
+    }
+
+    document.getElementById('btn-download').style.display = 'inline-block';
+    document.getElementById('export-status').innerHTML = '<div class="alert alert-success">Export generated successfully!</div>';
+}
+
+function downloadExport() {
+    if (!exportId) {
+        alert('Generate an export first.');
+        return;
+    }
+    window.open(`/api/exports/${exportId}/download`, '_blank');
+}
+
+async function loadExistingExports() {
+    document.getElementById('export-status').innerHTML = `<p>Click "Generate Export" to create a new report for Run #${runId}.</p>`;
+}
+
+loadExistingExports();
+</script>
+{% endblock %}

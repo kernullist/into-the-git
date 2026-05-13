@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.env
+data/dashboard.db
+data/repos/*
+data/reports/*
+!data/repos/.gitkeep
+!data/reports/.gitkeep
+*.egg-info/
+dist/
+build/

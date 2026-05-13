@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Projects - Code Analysis Dashboard{% endblock %}
+
+{% block filters %}
+<div class="filter-section">
+    <h3>Quick Actions</h3>
+    <button class="btn btn-primary" onclick="showCreateProject()">+ New Project</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Projects</h1>
+    <p>Manage your code analysis projects</p>
+</div>
+
+<div id="project-list" class="card-grid">
+    <div class="loading">Loading projects...</div>
+</div>
+
+<div id="create-project-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="hideCreateProject()">&times;</span>
+        <h2>Create New Project</h2>
+        <form id="create-project-form">
+            <div class="form-group">
+                <label for="project-name">Project Name</label>
+                <input type="text" id="project-name" required placeholder="My Project">
+            </div>
+            <div class="form-group">
+                <label for="project-desc">Description</label>
+                <textarea id="project-desc" rows="3" placeholder="Optional description"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Project</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadProjects() {
+    const resp = await fetch('/api/projects');
+    const projects = await resp.json();
+    const container = document.getElementById('project-list');
+    if (projects.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No projects yet. Create one to get started.</p></div>';
+        return;
+    }
+    container.innerHTML = projects.map(p => `
+        <div class="card" onclick="location.href='/project/${p.id}'">
+            <h3>${escapeHtml(p.name)}</h3>
+            <p class="card-meta">${escapeHtml(p.description || 'No description')}</p>
+            <div class="card-stats">
+                <span>${p.repository_count} repositories</span>
+                <span>Updated: ${formatDate(p.updated_at)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateProject() {
+    document.getElementById('create-project-modal').style.display = 'flex';
+}
+
+function hideCreateProject() {
+    document.getElementById('create-project-modal').style.display = 'none';
+}
+
+document.getElementById('create-project-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('project-name').value;
+    const desc = document.getElementById('project-desc').value;
+    await fetch('/api/projects', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, description: desc})
+    });
+    hideCreateProject();
+    loadProjects();
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(d) {
+    if (!d) return 'N/A';
+    return new Date(d).toLocaleDateString();
+}
+
+loadProjects();
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Project - Code Analysis Dashboard{% endblock %}
+
+{% block filters %}
+<div class="filter-section">
+    <h3>Actions</h3>
+    <button class="btn btn-primary" onclick="showAddRepo()">+ Add Repository</button>
+    <button class="btn btn-secondary" onclick="startAnalysis()">Run Analysis</button>
+    <a href="{{ url_for('index') }}" class="btn btn-link">Back to Projects</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 id="project-title">Project</h1>
+    <p id="project-desc"></p>
+</div>
+
+<div id="add-repo-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="hideAddRepo()">&times;</span>
+        <h2>Add Repository</h2>
+        <form id="add-repo-form">
+            <div class="form-group">
+                <label for="repo-provider">Provider</label>
+                <select id="repo-provider">
+                    <option value="local">Local Path</option>
+                    <option value="github">GitHub</option>
+                    <option value="gitlab">GitLab</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="repo-url">Repository URL / Path</label>
+                <input type="text" id="repo-url" required placeholder="https://github.com/user/repo or /path/to/local/repo">
+            </div>
+            <div class="form-group">
+                <label for="repo-branch">Default Branch</label>
+                <input type="text" id="repo-branch" value="main" placeholder="main">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Repository</button>
+        </form>
+    </div>
+</div>
+
+<div id="branch-selection-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="hideBranchSelection()">&times;</span>
+        <h2>Select Branch & Period</h2>
+        <form id="branch-form">
+            <input type="hidden" id="branch-repo-id">
+            <div class="form-group">
+                <label>Branch</label>
+                <select id="branch-select"></select>
+            </div>
+            <div class="form-group">
+                <label for="period-select">Analysis Period</label>
+                <select id="period-select">
+                    <option value="1w">Last 1 Week</option>
+                    <option value="1m" selected>Last 1 Month</option>
+                    <option value="3m">Last 3 Months</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div class="form-group" id="custom-period-group" style="display:none;">
+                <label for="custom-since">Since (YYYY-MM-DD)</label>
+                <input type="date" id="custom-since">
+            </div>
+            <button type="submit" class="btn btn-primary">Confirm & Analyze</button>
+        </form>
+    </div>
+</div>
+
+<h2>Repositories</h2>
+<div id="repo-list" class="card-grid">
+    <div class="loading">Loading repositories...</div>
+</div>
+
+<h2>Analysis Runs</h2>
+<div id="run-list" class="table-container">
+    <div class="loading">Loading analysis runs...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const projectId = {{ project_id }};
+
+async function loadProject() {
+    const resp = await fetch(`/api/projects/${projectId}`);
+    const p = await resp.json();
+    document.getElementById('project-title').textContent = p.name;
+    document.getElementById('project-desc').textContent = p.description || '';
+}
+
+async function loadRepos() {
+    const resp = await fetch(`/api/projects/${projectId}/repositories`);
+    const repos = await resp.json();
+    const container = document.getElementById('repo-list');
+    if (repos.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No repositories added. Add one to start analysis.</p></div>';
+        return;
+    }
+    container.innerHTML = repos.map(r => `
+        <div class="card">
+            <div class="card-header">
+                <span class="badge badge-${r.provider}">${r.provider}</span>
+                <button class="btn btn-sm btn-danger" onclick="deleteRepo(${r.id})">Remove</button>
+            </div>
+            <h4>${escapeHtml(r.remote_url)}</h4>
+            <p>Branch: ${r.default_branch || 'main'}</p>
+            <p>Last fetched: ${formatDate(r.last_fetched_at)}</p>
+            <button class="btn btn-sm btn-secondary" onclick="showBranchSelection(${r.id})">Select Branch</button>
+        </div>
+    `).join('');
+}
+
+async function loadRuns() {
+    const resp = await fetch(`/api/projects/${projectId}/analysis-runs`);
+    const runs = await resp.json();
+    const container = document.getElementById('run-list');
+    if (runs.length === 0) {
+        container.innerHTML = '<p class="empty-state">No analysis runs yet.</p>';
+        return;
+    }
+    const rows = runs.map(r => `
+        <tr onclick="location.href='/analysis/${r.id}'" class="clickable-row">
+            <td><span class="status-badge status-${r.status}">${r.status}</span></td>
+            <td>${r.progress.toFixed(0)}%</td>
+            <td>${r.finding_count} findings</td>
+            <td>${formatDate(r.created_at)}</td>
+            <td><a href="/dashboard?run_id=${r.id}" class="btn btn-sm btn-primary">View</a></td>
+        </tr>
+    `).join('');
+    container.innerHTML = `<table><thead><tr><th>Status</th><th>Progress</th><th>Findings</th><th>Created</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+let savedPeriod = '1m';
+
+async function startAnalysis() {
+    const resp = await fetch(`/api/projects/${projectId}/repositories`);
+    const repos = await resp.json();
+    if (repos.length === 0) {
+        alert('Please add at least one repository first.');
+        return;
+    }
+    const repoIds = repos.map(r => r.id);
+    const allBranches = [];
+    repos.forEach(r => {
+        if (r.selected_branches && r.selected_branches.length > 0) {
+            allBranches.push(...r.selected_branches);
+        }
+    });
+    const result = await fetch('/api/analysis-runs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            project_id: projectId,
+            repository_ids: repoIds,
+            branch_refs: allBranches.length > 0 ? allBranches : [],
+            period: savedPeriod
+        })
+    });
+    const run = await result.json();
+    location.href = `/analysis/${run.id}`;
+}
+
+async function showBranchSelection(repoId) {
+    document.getElementById('branch-repo-id').value = repoId;
+    document.getElementById('branch-selection-modal').style.display = 'flex';
+    const resp = await fetch(`/api/repositories/${repoId}/branches`);
+    const data = await resp.json();
+    const select = document.getElementById('branch-select');
+    select.innerHTML = data.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+}
+
+function hideBranchSelection() {
+    document.getElementById('branch-selection-modal').style.display = 'none';
+}
+
+document.getElementById('period-select').addEventListener('change', function() {
+    savedPeriod = this.value;
+    document.getElementById('custom-period-group').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+document.getElementById('branch-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const repoId = document.getElementById('branch-repo-id').value;
+    const branch = document.getElementById('branch-select').value;
+    const periodEl = document.getElementById('period-select');
+    savedPeriod = periodEl.value;
+    if (savedPeriod === 'custom') {
+        savedPeriod = document.getElementById('custom-since').value || '1m';
+    }
+    await fetch(`/api/repositories/${repoId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({selected_branches: [branch], default_branch: branch})
+    });
+    hideBranchSelection();
+    loadRepos();
+});
+
+async function deleteRepo(repoId) {
+    if (!confirm('Remove this repository?')) return;
+    await fetch(`/api/repositories/${repoId}`, {method: 'DELETE'});
+    loadRepos();
+}
+
+function showAddRepo() { document.getElementById('add-repo-modal').style.display = 'flex'; }
+function hideAddRepo() { document.getElementById('add-repo-modal').style.display = 'none'; }
+
+document.getElementById('add-repo-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const provider = document.getElementById('repo-provider').value;
+    const url = document.getElementById('repo-url').value;
+    const branch = document.getElementById('repo-branch').value;
+    await fetch(`/api/projects/${projectId}/repositories`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider, remote_url: url, default_branch: branch})
+    });
+    hideAddRepo();
+    loadRepos();
+});
+
+loadProject();
+loadRepos();
+loadRuns();
+setInterval(loadRuns, 5000);
+</script>
+{% endblock %}

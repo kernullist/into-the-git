@@ -1,0 +1,13 @@
+Flask==3.1.2
+Flask-SQLAlchemy==3.1.1
+Flask-CORS==5.0.1
+SQLAlchemy==2.0.41
+GitPython==3.1.45
+scikit-learn==1.7.2
+numpy==2.3.4
+scipy==1.16.2
+tree-sitter==0.25.2
+radon==6.0.1
+jellyfish==1.2.0
+python-dateutil==2.9.0
+gunicorn==23.0.0
