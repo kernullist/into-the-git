@@ -25,7 +25,8 @@ class BaseAnalyzer(ABC):
     def _run_tool(self, cmd, timeout=300):
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout
+                cmd, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=timeout
             )
             return {
                 "success": result.returncode >= 0,
