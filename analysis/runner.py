@@ -28,9 +28,6 @@ from commit_intel.frequency import compute_change_frequency
 from scoring.engine import (
     compute_finding_score,
     compute_complexity_score,
-    compute_duplication_score,
-    compute_change_frequency_score,
-    compute_priority_score,
     generate_recommendations,
 )
 
@@ -128,12 +125,9 @@ def run_analysis(app, run_id, retry_repository_ids=None, period="1m"):
                     messages = [c.get("message", "") for c in all_commits[:1000]]
                     result = classifier.cluster_unsupervised(messages)
                     if isinstance(result, tuple):
-                        cluster_labels, cluster_terms = result
+                        final_labels, cluster_terms = result
                     else:
-                        cluster_labels, cluster_terms = [classifier.classify_rule_based(m) for m in messages], {}
-                    rule_labels = classifier.classify_batch(messages)
-
-                    final_labels = cluster_labels if isinstance(cluster_labels, list) else list(cluster_labels)
+                        final_labels = list(result) if isinstance(result, list) else []
 
                     _store_commit_signals(run, repo, all_commits, final_labels, files)
 
@@ -161,6 +155,7 @@ def run_analysis(app, run_id, retry_repository_ids=None, period="1m"):
                         run_id=run.id,
                         target_type=rec["target_type"],
                         target_id=rec["target_id"],
+                        target_name=rec.get("target_name", ""),
                         priority_score=rec["priority_score"],
                         rationale=rec["rationale"],
                         contributing_signals=rec["contributing_signals"],

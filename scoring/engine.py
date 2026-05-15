@@ -1,7 +1,5 @@
 import math
 
-from .sentiment import compute_sentiment_score, compute_improvement_score
-
 
 SEVERITY_WEIGHTS = {
     "critical": 10,

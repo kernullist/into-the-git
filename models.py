@@ -294,6 +294,7 @@ class Recommendation(db.Model):
         db.String(50), nullable=False
     )  # file, function, repository, project
     target_id = db.Column(db.Integer, nullable=True)
+    target_name = db.Column(db.String(1024), default="")
     priority_score = db.Column(db.Float, default=0.0)
     rationale = db.Column(db.Text, default="")
     contributing_signals = db.Column(db.JSON, default=dict)
@@ -307,6 +308,7 @@ class Recommendation(db.Model):
             "run_id": self.run_id,
             "target_type": self.target_type,
             "target_id": self.target_id,
+            "target_name": self.target_name,
             "priority_score": self.priority_score,
             "rationale": self.rationale,
             "contributing_signals": self.contributing_signals,
