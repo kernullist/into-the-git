@@ -210,7 +210,7 @@ def _analyze_files(app, run, repo, connector, files, all_commits, all_file_signa
         lang_content = {}
         max_files = 200
         for file_info in lang_files[:max_files]:
-            if file_info == lang_files[max_files - 1] and len(lang_files) > max_files:
+            if len(lang_files) > max_files and file_info == lang_files[max_files - 1]:
                 _log(run, f"WARNING: Truncating {language} analysis to {max_files} files ({len(lang_files)} total). Use narrower branch/period filters.")
             content = connector.get_file_content(file_info["path"])
             if not content:
