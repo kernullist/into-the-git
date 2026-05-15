@@ -44,3 +44,12 @@ class GitLabConnector(BaseConnector):
 
         connector = LocalConnector(self._authenticated_url, self.local_path, self.branch)
         return connector.get_file_content(file_path)
+
+    def get_last_commit_for_file(self, file_path):
+        from .local import LocalConnector
+
+        connector = LocalConnector(self._authenticated_url, self.local_path, self.branch)
+        return connector.get_last_commit_for_file(file_path)
+
+    def get_owner_hint(self, file_path, commits):
+        return BaseConnector.get_owner_hint(file_path, commits)
